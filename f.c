@@ -5,14 +5,15 @@
 
 struct NODE {
   char name[64];
-  char type;
-  char *childPtr, *siblingPtr, *parentPtr; // is this how you declare "node pointers"?
+  char type; // 'D' or 'F' for directory and file
+  struct NODE *childPtr, *siblingPtr, *parentPtr;
 } NODE;
 
-//NODE *root, *cwd; *** doesn't recognize type ***
+struct NODE *root;
+struct NODE *cwd;
 char line[128];
 char command[16], pathname[64];
-//char dirname[64], basename[64]; // giving me error
+//char dirname[64], basename[64]; // giving me error due to libgen
 
 char *cmd[] = {'mkdir', 'rmdir', 'ls', 'cd', 'pwd', 'creat', 'rm', 'quit', 'help', '?', 'menu', 'reload', 'save', 0};
 
@@ -27,47 +28,100 @@ int findCmd(char *command)
   return -1;
 }
 
-int mkdir()
+int initialize()
 {
-  printf("mkdir test\n");
+  printf("Initializing root...\n");
   
+  //strcpy(root.name, "/");
+  //strcpy(root.type, "D");
+  //root.parentPtr = root;
+  
+  printf("Root successfully initialized\n");
   return 0;
 }
 
-int rmdir()
+int mkdir(char *pathname)
 {
+  printf("Creating directory %s...\n", pathname);
+  
+
+
+  printf("Directory %s created\n", pathname);
+
+  return 0;
+}
+
+int rmdir(char *pathname)
+{
+  printf("Removing directory %s...\n", pathname);
+
+
+
+  printf("Directory %s removed\n", pathname);
+
   return 0;
 }
 
 int ls()
 {
+	printf("Listing file contents...\n");
+
+
+
+	printf("File contents listed\n");
+
   return 0;
 }
 
-int cd()
+int cd(char *pathname)
 {
+	printf("Changing directory...\n");
+
+
+
+	printf("Directory changed\n");
+
   return 0;
 }
 
-int pwd()
-{
+int pwd() // a pathname is absolute if it begins with /, indicating it starts from the root
+{         // otherwise, it is relative to the CWD
+	printf("Printing pathname...\n");
+
+
+
+	printf("Pathname printed\n");
+
   return 0;
 }
 
-int creat()
+int creat(char *pathname)
 {
+	printf("Creating file %s...\n", pathname);
+
+
+
+	printf("File %s created\n", pathname);
+
   return 0;
 }
 
-int rm()
+int rm(char *pathname)
 {
+	printf("Removing file %s...\n", pathname);
+
+
+
+	printf("File %s removed\n", pathname);
+
   return 0;
 }
 
 int quit()
 {
   // *** TODO : add code to save the file system tree ***
-  printf("quit function\n");
+  save();
+  printf("Quitting program...\n");
   exit(0);
   
   return 0;
@@ -75,16 +129,25 @@ int quit()
 
 int reload()
 {
+	printf("Reloading tree from file...\n");
+
+
+
+	printf("File reloaded\n");
   return 0;
 }
 
 int save()
 {
-  printf("save function");
+  printf("Saving tree...\n");
+
+
+
+  printf("Tree saved\n");
   return 0;
 }
 
-int menu()
+int menu() // DONE
 {
   printf("*** COMMAND LIST ***\n mkdir | rmdir | ls | cd | pwd | creat | rm | quit | help | ? | menu | reload | save");
 
@@ -105,19 +168,40 @@ int removeChar(char *str, char c)
 
 int main()
 {
-  //initialize(); // initialize "/" node of the file system tree
+	char *command;
+	char *pathname;
+	int hasPathname = 0;
+  initialize(); // initialize "/" node of the file system tree
   printf("Type 'help' or '?' for help\n");
   while(1){
     printf("Input a command: ");
-    scanf("%s", command);
+    gets(line);
+    //command = strtok(line, " ");
+    //pathname = strtok(NULL, " ");
+    //scanf("%s %s", command, pathname);
+    //scanf("%s", command);
+    //printf("%s\n", command);
+
+    if (strchr(line, " ") != NULL)
+    	hasPathname = 1;
+
+
+    if (hasPathname == 1)
+    {
+    	command = strtok(line, " ");
+    	pathname = strtok(NULL, " ");
+    	printf("%s\n%s\n", command, pathname);
+    }
+    else
+    {
+    	scanf("%s", command);
+    	printf("%s\n", command);
+    }
     /* if (scanf("%s", pathname) != NULL) *** instead of this maybe do some if's where you only take in pathname if command is a command that needs a pathname ***
       {
 	//scanf("%s", pathname);
 	printf("%s", pathname);
 	}*/
-    scanf("%s", pathname);
-    printf("%s\n", command);
-    printf("%s\n", pathname);
     
     /*int ID = findCmd(command);
     printf("%d", ID);
@@ -141,19 +225,19 @@ int main()
     // removeChar(command, " "); // might need to removeChar for pathname as well *** no need for this actually ***
     // printf("%s", command);
     if (strcmp(command, "mkdir")==0)
-      mkdir();
+      mkdir(pathname);
     else if (strcmp(command, "rmdir")==0)
-      rmdir();
+      rmdir(pathname);
     else if (strcmp(command, "ls")==0)
       ls();
     else if (strcmp(command, "cd")==0)
-      cd();
+      cd(pathname);
     else if (strcmp(command, "pwd")==0)
       pwd();
     else if (strcmp(command, "creat")==0)
-      creat();
+      creat(pathname);
     else if (strcmp(command, "rm")==0)
-      rm();
+      rm(pathname);
     else if (strcmp(command, "quit")==0)
       quit();
     else if (strcmp(command, "help")==0)

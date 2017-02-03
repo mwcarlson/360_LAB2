@@ -13,7 +13,8 @@ struct NODE *root;
 struct NODE *cwd;
 char line[128];
 char command[16], pathname[64];
-char dname[64], bname[64];
+char *dname;
+char *bname;
 
 char *cmd[] = {"mkdir", "rmdir", "ls", "cd", "pwd", "creat", "rm", "quit", "help", "?", "menu", "reload", "save", "\0"};
 
@@ -30,23 +31,65 @@ int findCmd(char *command)
   return -1;
 }
 
-/*int initialize()
+int initialize()
 {
-  printf("Initializing root...\n");
+  root = malloc(sizeof(NODE));
+	cwd = root;
 
-  strcpy(root.name, "/");
-  strcpy(root.type, "D");
-  root.parentPtr = root;
+	printf("Initializing root...\n");
+	root->name = '/';
+	root->type = 'D';
+	root->childPtr = NULL;
+	root->siblingPtr = root;
+	root->parentPtr = root;
+	printf("Root initialized\n");
+	cwd = root;
 
-  printf("Root successfully initialized\n");
-  return 0;
-}*/
+	return 0;
+}
+
+NODE* getChildren(char *path, NODE* parent)
+{
+	NODE* temp = parent->childPtr;
+
+	while (temp != NULL)
+		temp = temp->siblingPtr;
+
+	return temp;
+}
 
 int mkdir(char *pathname)
 {
   printf("Creating directory %s...\n", pathname);
 
+  NODE *cwdNode = cwd;
+  NODE *tempNode;
+  char *tempStr;
 
+  strcpy(tempStr, pathname);
+  strcpy(dname, dirname(tempStr)); // gives path up to the final '/'
+
+  strcpy(tempStr, pathname);
+  strcpy(bname, basename(tempStr)); // gives component after the final '/'
+
+  cd(&dname[0]); // go to the first directory in the path
+  tempNode = getChildren(bname, cwd);
+
+  tempNode = cwd->childPtr;
+
+  while (tempNode->siblingPtr != NULL)
+  	tempNode = tempNode->siblingPtr;
+
+  tempNode->siblingPtr = malloc(sizeof(NODE)); // create a new NODE for new directory
+
+  tempNode->siblingPtr->parentPtr = cwd;
+  tempNode->siblingPtr->siblingPtr = NULL;
+  tempNode->siblingPtr->childPtr = NULL;
+  tempNode->siblingPtr->type = "D";
+
+  strcpy(tempNode->siblingPtr->name, bname);
+
+  cwd = cwdNode;
 
   printf("Directory %s created\n", pathname);
 
@@ -57,7 +100,40 @@ int rmdir(char *pathname)
 {
   printf("Removing directory %s...\n", pathname);
 
+  NODE *cwdNode = cwd;
+  NODE *tempNode;
+  char *tempStr;
 
+  strcpy(tempStr, pathname);
+  strcpy(dname, dirname(tempStr)); // gives path up to the final '/'
+
+  strcpy(tempStr, pathname);
+  strcpy(bname, basename(tempStr)); // gives component after the final '/'
+
+  cd(&dname[0]); // go to the first directory in the path
+  tempNode = getChildren(bname, cwd);
+
+  if (tempNode->parentPtr->childPtr == tempNode)
+  {
+  	if (tempNode->siblingPtr == NULL)
+  		tempNode->parentPtr->childPtr = NULL;
+  	else
+  		tempNode->parentPtr->childPtr = tempNode->siblingPtr;
+  }
+
+  else
+  {
+  	NODE *ttempNode = tempNode->parentPtr->childPtr;
+
+  	while (ttempNode->siblingPtr != tempNode)
+  		ttempNode = ttempNode->siblingPtr;
+
+  	ttempNode->siblingPtr = tempNode->siblingPtr;
+  }
+
+  free(tempNode); // deallocate memory
+
+  cwd = cwdNode;
 
   printf("Directory %s removed\n", pathname);
 
@@ -68,21 +144,21 @@ int ls()
 {
 	printf("Listing file contents...\n");
 
+	NODE *cwdNode = cwd; // save contents of cwd
 
+	NODE *tempNode = cwd->childPtr;
+
+	while (tempNode)
+	{
+		printf("| Name: %s, Type: %c | ", tempNode->name, tempNode->type);
+		tempNode = tempNode->siblingPtr;
+	}
+
+	cwd = cwdNode;
 
 	printf("File contents listed\n");
 
   return 0;
-}
-
-NODE* getChildren(char *pathname, NODE* parent)
-{
-	NODE* temp = parent->childPtr;
-
-	while (temp != NULL)
-		temp = temp->siblingPtr;
-
-	return temp;
 }
 
 int cd(char *pathname)
@@ -108,6 +184,22 @@ int cd(char *pathname)
 			cwd = root;
 		}
 
+		NODE *tempNode = cwd;
+
+		char *pathItem;
+		strcpy(pathItem, pathname);
+		char *pathList;
+		pathList = strtok(pathItem, "/");
+
+		while (pathList != NULL && tempNode != NULL)
+		{
+			tempNode = getChildren(pathname, tempNode);
+			pathList = strtok(NULL, "/");
+		}
+
+		cwd = tempNode;
+
+		return 0;
 	}
 
 	printf("Directory changed\n");
@@ -115,13 +207,30 @@ int cd(char *pathname)
   return 0;
 }
 
+int pwdRec(NODE *tempNode)
+{
+	if (tempNode != root) // reaching the root is the base case
+	{
+		pwdRec(tempNode->parentPtr);  // recursively call for the parent
+		printf("/%s", tempNode->name);
+	}
+}
+
 int pwd() // a pathname is absolute if it begins with /, indicating it starts from the root
 {         // otherwise, it is relative to the CWD
 	printf("Printing pathname...\n");
 
+	NODE *tempNode;
 
+	if (cwd != root)
+	{
+		tempNode = cwd;\
+		pwdRec(tempNode);
+	}
+	else
+		printf("/");
 
-	printf("Pathname printed\n");
+	printf("\nPathname printed\n");
 
   return 0;
 }
@@ -130,7 +239,34 @@ int creat(char *pathname)
 {
 	printf("Creating file %s...\n", pathname);
 
+	NODE *cwdNode = cwd;
+	NODE *tempNode;
+	char *tempStr;
 
+	strcpy(tempStr, pathname);
+	strcpy(dname, dirname(tempStr)); // gives path up to the final '/'
+
+	strcpy(tempStr, pathname);
+	strcpy(bname, basename(tempStr)); // gives component after the final '/'
+
+	cd(&dname[0]); // go to the first directory in the path
+	tempNode = getChildren(bname, cwd);
+
+	tempNode = cwd->childPtr;
+
+	while (tempNode->siblingPtr != NULL)
+	  tempNode = tempNode->siblingPtr;
+
+	tempNode->siblingPtr = malloc(sizeof(NODE)); // create a new NODE for new directory
+
+	tempNode->siblingPtr->parentPtr = cwd;
+	tempNode->siblingPtr->siblingPtr = NULL;
+	tempNode->siblingPtr->childPtr = NULL;
+	tempNode->siblingPtr->type = "F";
+
+	strcpy(tempNode->siblingPtr->name, bname);
+
+	cwd = cwdNode;
 
 	printf("File %s created\n", pathname);
 
@@ -141,19 +277,42 @@ int rm(char *pathname)
 {
 	printf("Removing file %s...\n", pathname);
 
+	NODE *cwdNode = cwd;
+	NODE *tempNode;
+	char *tempStr;
 
+	strcpy(tempStr, pathname);
+  strcpy(dname, dirname(tempStr)); // gives path up to the final '/'
+
+	strcpy(tempStr, pathname);
+	strcpy(bname, basename(tempStr)); // gives component after the final '/'
+
+	cd(&dname[0]); // go to the first directory in the path
+	tempNode = getChildren(bname, cwd);
+
+	if (tempNode->parentPtr->childPtr == tempNode)
+	{
+	  if (tempNode->siblingPtr == NULL)
+	  	tempNode->parentPtr->childPtr = NULL;
+	  else
+	  	tempNode->parentPtr->childPtr = tempNode->siblingPtr;
+	}
+
+	else
+	{
+	  NODE *ttempNode = tempNode->parentPtr->childPtr;
+
+	  while (ttempNode->siblingPtr != tempNode)
+	  ttempNode = ttempNode->siblingPtr;
+
+	  ttempNode->siblingPtr = tempNode->siblingPtr;
+	}
+
+	free(tempNode); // deallocate memory
+
+	cwd = cwdNode;
 
 	printf("File %s removed\n", pathname);
-
-  return 0;
-}
-
-int quit()
-{
-  // *** TODO : add code to save the file system tree ***
-  save();
-  printf("Quitting program...\n");
-  exit(0);
 
   return 0;
 }
@@ -178,6 +337,17 @@ int save()
   return 0;
 }
 
+int quit()
+{
+  // *** TODO : add code to save the file system tree ***
+	//printf("Saving tree...\n");
+  save();
+  printf("Quitting program...\n");
+  exit(0);
+
+  return 0;
+}
+
 int menu() // DONE
 {
   printf("*** COMMAND LIST ***\n mkdir | rmdir | ls | cd | pwd | creat | rm | quit | help | ? | menu | reload | save");
@@ -185,32 +355,9 @@ int menu() // DONE
   return 0;
 }
 
-int removeChar(char *str, char c)
-{
-  char *pr = str, *pw = str;
-  while (*pr) {
-    *pw = *pr++;
-    pw += (*pw != c);
-  }
-  *pw = "\0";
-
-  return 0;
-}
-
 int main()
 {
-	root = malloc(sizeof(NODE));
-	cwd = root;
-
-	printf("Initializing root...\n");
-	root->name = '/';
-	root->type = 'D';
-	root->childPtr = NULL;
-	root->siblingPtr = root;
-	root->parentPtr = root;
-	printf("Root initialized\n");
-
-  //initialize(); // initialize "/" node of the file system tree
+	initialize(); // initialize "/" node of the file system tree
   printf("Type 'help' or '?' for help\n");
   while(1){
     printf("Input a command: ");
